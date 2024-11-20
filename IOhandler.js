@@ -46,6 +46,24 @@ const readDir = async (dir) => {
   return pngPaths;
 };
 
+const grayScale = async (rVal, gVal, bVal) => {
+  const average = (rVal + gVal + bVal) / 3;
+  return [average, average, average]
+};
+
+const sepia = async (rVal, gVal, bVal) => {
+  const rSep = Math.min(255, (0.393 * rVal) + (0.769 * gVal) + (0.189 * bVal));
+  const gSep = Math.min(255, (0.349 * rVal) + (0.686 * gVal) + (0.168 * bVal));
+  const bSep = Math.min(255, (0.272 * rVal) + (0.534 * gVal) + (0.131 * bVal));
+
+  return [rSep, gSep, bSep];
+};
+
+const invert = async (rVal, gVal, bVal) => {
+  const rgbVals = [255 - rVal, 255 - gVal, 255 - bVal];
+  return rgbVals;
+};
+
 /**
  * Description: Read in png file by given pathIn,
  * convert to grayscale and write to given pathOut
@@ -54,24 +72,31 @@ const readDir = async (dir) => {
  * @param {string} pathProcessed
  * @return {promise}
  */
-const grayScale = (pathIn, pathOut) => {
+const filter = (pathIn, pathOut, filterType) => {
   fs.createReadStream(pathIn)
     .pipe(
       new PNG({
         filterType: 4,
       })
     )
-    .on("parsed", function () {
+    .on("parsed", async function () {
       for (var y = 0; y < this.height; y++) {
         for (var x = 0; x < this.width; x++) {
           var idx = (this.width * y + x) << 2;
 
           // TODO: put in helper function that you can pass a filter to eg. grayScale
           // average color
-          const average = (this.data[idx] + this.data[idx + 1] + this.data[idx + 2]) / 3;
-          this.data[idx] = average;
-          this.data[idx + 1] = average;
-          this.data[idx + 2] = average;
+          let rgbVals;
+          if (filterType.toLowerCase() === "grayscale") {
+            rgbVals = await grayScale(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+          } else if (filterType.toLowerCase() === "sepia") {
+            rgbVals = await sepia(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+          } else if (filterType.toLowerCase() === "invert") {
+            rgbVals = await invert(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+          }
+          this.data[idx] = rgbVals[0];
+          this.data[idx + 1] = rgbVals[1];
+          this.data[idx + 2] = rgbVals[2];
         }
       }
 
@@ -82,5 +107,5 @@ const grayScale = (pathIn, pathOut) => {
 module.exports = {
   unzip,
   readDir,
-  grayScale,
+  filter,
 };
