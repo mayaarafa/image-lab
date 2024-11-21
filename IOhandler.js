@@ -76,12 +76,13 @@ const invert = async (rVal, gVal, bVal) => {
 const filter = (pathIn, pathOut, filterType) => {
   return new Promise((resolve, reject) => {
     fs.createReadStream(pathIn)
-      // .on("error", reject)
+      .on("error", reject)
       .pipe(
         new PNG({
           filterType: 4,
         })
       )
+      .on("error", reject)
       .on("parsed", async function () {
         for (let y = 0; y < this.height; y++) {
           for (let x = 0; x < this.width; x++) {
@@ -102,7 +103,7 @@ const filter = (pathIn, pathOut, filterType) => {
             this.data[idx + 2] = rgbVals[2];
           }
         }
-        this.pack().pipe(fs.createWriteStream(pathOut)).on("finish", resolve);
+        this.pack().on("error", reject).pipe(fs.createWriteStream(pathOut)).on("error", reject).on("finish", resolve);
       });
   })
 };
