@@ -39,7 +39,8 @@ const readDir = async (dir) => {
   const filenames = await fs.promises.readdir(dir, "utf8");
   const pngPaths = [];
   for (const file of filenames) {
-    if (file.endsWith(".png")) {
+    // TODO
+    if (path.extname(file) === ".png") {
       pngPaths.push(`unzipped/${file}`);
     }
   }
@@ -73,35 +74,37 @@ const invert = async (rVal, gVal, bVal) => {
  * @return {promise}
  */
 const filter = (pathIn, pathOut, filterType) => {
-  fs.createReadStream(pathIn)
-    .pipe(
-      new PNG({
-        filterType: 4,
-      })
-    )
-    .on("parsed", async function () {
-      for (var y = 0; y < this.height; y++) {
-        for (var x = 0; x < this.width; x++) {
-          var idx = (this.width * y + x) << 2;
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(pathIn)
+      // .on("error", reject)
+      .pipe(
+        new PNG({
+          filterType: 4,
+        })
+      )
+      .on("parsed", async function () {
+        for (let y = 0; y < this.height; y++) {
+          for (let x = 0; x < this.width; x++) {
+            let idx = (this.width * y + x) << 2;
 
-          // TODO: put in helper function that you can pass a filter to eg. grayScale
-          // average color
-          let rgbVals;
-          if (filterType.toLowerCase() === "grayscale") {
-            rgbVals = await grayScale(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
-          } else if (filterType.toLowerCase() === "sepia") {
-            rgbVals = await sepia(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
-          } else if (filterType.toLowerCase() === "invert") {
-            rgbVals = await invert(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+            // TODO: put in helper function that you can pass a filter to eg. grayScale
+            // average color
+            let rgbVals;
+            if (filterType.toLowerCase() === "grayscale") {
+              rgbVals = await grayScale(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+            } else if (filterType.toLowerCase() === "sepia") {
+              rgbVals = await sepia(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+            } else if (filterType.toLowerCase() === "invert") {
+              rgbVals = await invert(this.data[idx], this.data[idx + 1], this.data[idx + 2]);
+            }
+            this.data[idx] = rgbVals[0];
+            this.data[idx + 1] = rgbVals[1];
+            this.data[idx + 2] = rgbVals[2];
           }
-          this.data[idx] = rgbVals[0];
-          this.data[idx + 1] = rgbVals[1];
-          this.data[idx + 2] = rgbVals[2];
         }
-      }
-
-      this.pack().pipe(fs.createWriteStream(pathOut));
-    });
+        this.pack().pipe(fs.createWriteStream(pathOut)).on("finish", resolve);
+      });
+  })
 };
 
 module.exports = {
